@@ -240,7 +240,7 @@ class ComtradeRequest(ComtradeURL):
         self.trade_type = 'C'
         self.fmt = 'csv'
 
-    def pull_data(self, save=False):
+    def pull_data(self, save=False, **kwargs):
 
         if hasattr(self, 'last_request'):
             now = dt.now()
@@ -272,9 +272,9 @@ class ComtradeRequest(ComtradeURL):
                 idx += 1
 
             if self.fmt == 'csv':
-                self.data.to_csv(fname)
+                self.data.to_csv(fname, index=False, **kwargs)
             if self.fmt == 'json':
-                self.data.to_json(fname)
+                self.data.to_json(fname, index=False, **kwargs)
 
             return None
 
