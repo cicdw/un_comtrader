@@ -63,18 +63,21 @@ class ComtradeURL(object):
         valid_p = [int(val) for val in valid_p if val != 'all']
         self.valid_p = valid_p + ['all']
 
+    def from_url(self, url):
+        self.base_url = url
+        self._parse_url(url)
+        return self
+
     def __init__(self, partner_area=None, reporting_area=None,
         time_period=None, hs=None, freq=None, trade_type=None,
         url=None, fmt='csv'):
 
         self.set_valid_args()
-        self.fmt = fmt
-
         if url:
-            self.base_url = url #TODO: parse parameters from URL
-            self._parse_url(url)
+            self.from_url(url)
         else:
             self.base_url = 'http://comtrade.un.org/api/get?'
+            self.fmt = fmt
 
         if partner_area:
             self.partner_area = partner_area
@@ -367,19 +370,18 @@ class MultiRequest(object):
         return res
 
     def pull_data(self, verbose=True, save=False, **kwargs):
-        self.unfulfilled_reqs = self.reqs
-        req = self.unfulfilled_reqs.pop()
-        ##FIXME: adjust single request, need URL parser
+
+        reqs_left = self.reqs
+        req = reqs_left.pop()
         base_req = ComtradeRequest(url=req.base_url)
 
         if verbose:
             print('Pulling request {}'.format(base_req.base_url))
         df = base_req.pull_data()
 
-        while len(self.unfulfilled_reqs) > 0:
-            sleep(1.05)
-            req = self.unfulfilled_reqs.pop()
-            req = ComtradeRequest(url=req.base_url)
+        while len(reqs_left) > 0:
+            new_req = reqs_left.pop()
+            req = req.from_url(new_req.base_url)
 
             if verbose:
                 print('Pulling request {}'.format(req.base_url))
