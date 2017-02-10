@@ -250,22 +250,29 @@ class ComtradeRequest(ComtradeURL):
 
         self.last_request = dt.now()
         r = requests.get(self._base_url)
+        self.n_reqs += 1
         content = r.content.decode('utf-8')
         
         if "No data matches your query" in content:
             raise IOError("No data matches your query or your query is too complex!")
 
-        self.data = pd.read_csv(StringIO(content))
-        self.n_reqs += 1
+        if self.fmt == 'csv':
+            self.data = pd.read_csv(StringIO(content))
+        if self.fmt == 'json':
+            self.data = pd.read_json(StringIO(content))
 
         if save:
-            fname = 'australia_comtrade.{}'.format(self.fmt)
+            fname = save
             idx = 1
             while exists(fname):
                 fname = fname.replace('.', '_v{}.'.format(idx))
                 idx += 1
 
-            self.data.to_csv(fname)
+            if self.fmt == 'csv':
+                self.data.to_csv(fname)
+            if self.fmt == 'json':
+                self.data.to_json(fname)
+
             return None
 
         return self.data
