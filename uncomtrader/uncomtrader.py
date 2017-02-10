@@ -10,16 +10,38 @@ import re
 import requests
 import uncomtrader
 
+def _set_attr(obj, pattern, attr, url, dig=True):
+    pat = re.compile(pattern)
+    find = pat.search(url).group()
+    if find:
+        find = find.split('=')[1]
+        if len(find.split(',')) > 1:
+            try:
+                find = list(map(int, find.split(',')))
+            except ValueError:
+                find = find.split(',')
+            setattr(obj, attr, find)
+        elif find=='all':
+            setattr(obj, attr, 'all')
+        else:
+            try:
+                setattr(obj, attr, int(find))
+            except ValueError:
+                setattr(obj, attr, find)
+
 
 class ComtradeURL(object):
 
     def _parse_url(self, url):
 
         # partner_area
-        pat1 = re.compile('p=(\d+,?)}')
-        pat2 = re.compile('p=all')
-        pat_list = pat1.match(url)
-        pat_all = pat2.match(url)
+        _set_attr(self, 'p=(\d+,?)+|p=all', 'partner_area', url)
+        _set_attr(self, 'r=(\d+,?)+|r=all', 'reporting_area', url)
+        _set_attr(self, 'ps=(\d+,?)+', 'time_period', url)
+        _set_attr(self, 'cc=(\d+,?)+', 'hs', url)
+        _set_attr(self, 'freq=A|freq=M', 'freq', url)
+        _set_attr(self, 'type=C|type=S', 'trade_type', url)
+        _set_attr(self, 'fmt=csv|fmt=json', 'fmt', url)
 
     def set_valid_args(self):
 
@@ -43,14 +65,16 @@ class ComtradeURL(object):
 
     def __init__(self, partner_area=None, reporting_area=None,
         time_period=None, hs=None, freq=None, trade_type=None,
-        url=None):
+        url=None, fmt='csv'):
+
+        self.set_valid_args()
+        self.fmt = fmt
 
         if url:
             self.base_url = url #TODO: parse parameters from URL
+            self._parse_url(url)
         else:
             self.base_url = 'http://comtrade.un.org/api/get?'
-
-        self.set_valid_args()
 
         if partner_area:
             self.partner_area = partner_area
@@ -64,8 +88,6 @@ class ComtradeURL(object):
             self.freq = freq
         if trade_type:
             self.trade_type = trade_type
-
-        self.fmt = 'csv'
 
     @property
     def base_url(self):
@@ -364,16 +386,19 @@ class MultiRequest(object):
 
             df = pd.concat([df, req.pull_data()])
 
+        self.data = df
+
         if save:
             df.to_csv(save, index=False)
             return None
         else:
             return df
 
+
     def __init__(self, hs=[], time_period=[], **kwargs):
-        self.reqs = []
         self.hs = self._partition(hs, 20)
         self.time_period = self._partition(time_period, 5)
+        self.reqs = []
 
         for hs_val in self.hs:
             for ts_val in self.time_period:
@@ -388,4 +413,3 @@ class MultiRequest(object):
         for req in self.reqs:
             out += '\n{}'.format(req.base_url)
         return out
-
