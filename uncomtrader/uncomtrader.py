@@ -103,6 +103,8 @@ class ComtradeURL(object):
 
         if isinstance(val, list):
             val = ','.join(map(str, val))
+            if len(val) > 20:
+                raise ValueError("Too many HS codes provided; limit is 20.")
 
         if hasattr(self, '_px'):
             self.base_url = re.sub('cc=(\d+,?)+', 'cc={}'.format(val), 
@@ -149,6 +151,8 @@ class ComtradeURL(object):
 
         if isinstance(val, list):
             val = ','.join(map(str, val))
+            if len(val) > 5:
+                raise ValueError("Too many time periods provided; limit is 5.")
 
         if hasattr(self, '_ps'):
             self.base_url = re.sub('ps=(\d+,?)+', 'ps={}'.format(val),
