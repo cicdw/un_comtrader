@@ -1,43 +1,41 @@
 from datetime import datetime as dt
 from io import StringIO
 from os.path import exists
+from time import sleep
 
+import json
 import pandas as pd
+import re
 import requests
 
 
-class ComtradeRequest(object):
+class ComtradeURL(object):
 
-    def set_defaults(self):
-        '''Sets some convenient default values for testing.'''
-        self.partner_area = 36
-        self.time_period = 2016
-        self.reporting_area = 'all'
-        self.hs = 44
-        self.freq = 'A'
-        self.trade_type = 'C'
-        self.fmt = 'csv'
+    def set_valid_args(self):
 
-    def pull_data(self, save=False):
-        self.last_request = dt.now()
-        r = requests.get(self._base_url)
-        content = r.content.decode('utf-8')
-        self.data = pd.read_csv(StringIO(content))
+        with open('../data/reporterAreas.json', 'r') as data_file:
+            valid_r = json.load(data_file)
 
-        if save:
-            fname = 'australia_comtrade.{}'.format(self.fmt)
-            idx = 1
-            while exists(fname):
-                fname = fname.replace('.', '_v{}.'.format(idx))
-                idx += 1
+        with open('../data/partnerAreas.json', 'r') as data_file:
+            valid_p = json.load(data_file)
 
-            self.data.to_csv(fname)
-            return None
+        ## valid reporting areas
+        valid_r = [obj['id'] for obj in valid_r['results']]
+        valid_r = [int(val) for val in valid_r if val != 'all']
+        self.valid_r = valid_r + ['all']
 
-        return self.data
-    
-    def __init__(self):
-        self.base_url = 'http://comtrade.un.org/api/get?'
+        ## set valid partner areas
+        valid_p = [obj['id'] for obj in valid_p['results']]
+        valid_p = [int(val) for val in valid_p if val != 'all']
+        self.valid_p = valid_p + ['all']
+
+    def __init__(self, url=None):
+        if url:
+            self.base_url = url
+        else:
+            self.base_url = 'http://comtrade.un.org/api/get?'
+
+        self.set_valid_args()
 
     @property
     def base_url(self):
@@ -59,9 +57,16 @@ class ComtradeRequest(object):
     @fmt.setter
     def fmt(self, val):
         if val not in ['csv', 'json']:
-            raise ValueError('Allowable values for trade type are csv and json!')
+            raise ValueError('''Allowable values for trade type are 'csv' and 'json'!''')
 
-        self.base_url += '&fmt={}'.format(val)
+        if hasattr(self, '_fmt'):
+            self.base_url = re.sub('fmt=csv', 'fmt={}'.format(val),
+                                    self.base_url)
+            self.base_url = re.sub('fmt=json', 'fmt={}'.format(val),
+                                    self.base_url)
+        else:
+            self.base_url += '&fmt={}'.format(val)
+
         self._fmt = val
 
     @property
@@ -72,13 +77,18 @@ class ComtradeRequest(object):
     def trade_type(self, val):
         try:
             val = val.upper()
-        except AttributeError:
-            raise ValueError('Allowable values for trade type are C and S!')
+        except AttributeError as err:
+            raise ValueError('''Allowable values for trade type are 'C' and 'S'!''')
 
         if val not in ['C', 'S']:
-            raise ValueError('Allowable values for trade type are C and S!')
+            raise ValueError('''Allowable values for trade type are 'C' and 'S'!''')
 
-        self.base_url += '&type={}'.format(val)
+        if hasattr(self, '_type'):
+            self.base_url = re.sub('type=[A-Z]', 'type={}'.format(val),
+                                    self.base_url)
+        else:
+            self.base_url += '&type={}'.format(val)
+
         self._type = val
 
     @property
@@ -87,13 +97,14 @@ class ComtradeRequest(object):
 
     @hs.setter
     def hs(self, val):
-        if val != 44:
-            raise ValueError("Only allowable value is 44!")
+        if hasattr(self, '_px'):
+            self.base_url = re.sub('cc=\d+', 'cc={}'.format(val), 
+                                self.base_url)
+        else:
+            self.base_url += '&px=HS&cc={}'.format(val)
 
         self._px = 'HS'
         self._cc = val
-
-        self.base_url += '&px=HS&cc={}'.format(val)
 
     @property
     def partner_area(self):
@@ -101,11 +112,18 @@ class ComtradeRequest(object):
 
     @partner_area.setter
     def partner_area(self, val):
-        if val != 36:
-            raise ValueError("Only allowable value is 36!")
+        if val not in self.valid_p:
+            raise ValueError('Invalid value given!')
+
+        if hasattr(self, '_p'):
+            self.base_url = re.sub('p=\d+', 'p={}'.format(val),
+                                    self.base_url)
+            self.base_url = re.sub('p=all', 'p={}'.format(val),
+                                    self.base_url)
+        else:
+            self.base_url += '&p={}'.format(val)
 
         self._p = val
-        self.base_url += '&p={}'.format(val)
 
     @property
     def time_period(self):
@@ -113,8 +131,13 @@ class ComtradeRequest(object):
 
     @time_period.setter
     def time_period(self, val):
+        if hasattr(self, '_ps'):
+            self.base_url = re.sub('ps=\d+', 'ps={}'.format(val),
+                                    self.base_url)
+        else:
+            self.base_url += '&ps={}'.format(val)
+
         self._ps = val
-        self.base_url += '&ps={}'.format(val)
 
     @property
     def freq(self):
@@ -129,8 +152,13 @@ class ComtradeRequest(object):
         if val not in ['A', 'M']:
             raise ValueError('''Allowable frequency values are 'A' and 'M'!''')
 
+        if hasattr(self, '_freq'):
+            self.base_url = re.sub('freq=[A-Z]', 'freq={}'.format(val), 
+                                self.base_url)
+        else:
+            self.base_url += '&freq={}'.format(val)
+
         self._freq = val
-        self.base_url += '&freq={}'.format(val)
 
     @property
     def reporting_area(self):
@@ -138,8 +166,102 @@ class ComtradeRequest(object):
 
     @reporting_area.setter
     def reporting_area(self, val):
+        if val not in self.valid_r:
+            raise ValueError('Invalid value given!')
+       
+        if hasattr(self, '_r'):
+            self.base_url = re.sub('r=\d+', 'r={}'.format(val),
+                                    self.base_url)
+            self.base_url = re.sub('r=all', 'r={}'.format(val),
+                                    self.base_url)
+        else:
+            self.base_url += '&r={}'.format(val)
+
         self._r = val
-        self.base_url += '&r={}'.format(val)
+
+    def __repr__(self):
+        out = 'Current Comtrade Request URL: {}'.format(self._base_url)
+        return out
+
+
+class ComtradeRequest(ComtradeURL):
+    '''Creates URL request for UN Comtrade data.
+
+    Inputs:
+        partner_area : Partner Area
+        reporting_area : Reporting Area
+        time_period : Time Period
+        hs : Classification Code
+        freq : Data Frequency
+        trade_type : Trade Type
+    '''
+
+    @classmethod
+    def from_file(cls, fpath):
+        with open(fpath, 'r') as req_path:
+            args = json.load(req_path)
+
+        return cls(**args)
+
+    def set_defaults(self):
+        '''Sets some convenient default values for testing.'''
+        self.partner_area = 36
+        self.time_period = 2016
+        self.reporting_area = 'all'
+        self.hs = 44
+        self.freq = 'A'
+        self.trade_type = 'C'
+        self.fmt = 'csv'
+
+    def pull_data(self, save=False):
+
+        if self.last_request:
+            now = dt.now()
+            time_elapsed = (now - self.last_request).total_seconds()
+            if time_elapsed < 1:
+               sleep(1)
+
+        if self.n_reqs >= 100:
+            raise ValueError("Too many requests have been made! Take a break.")
+
+        self.last_request = dt.now()
+        r = requests.get(self._base_url)
+        content = r.content.decode('utf-8')
+        self.data = pd.read_csv(StringIO(content))
+        self.n_reqs += 1
+
+        if save:
+            fname = 'australia_comtrade.{}'.format(self.fmt)
+            idx = 1
+            while exists(fname):
+                fname = fname.replace('.', '_v{}.'.format(idx))
+                idx += 1
+
+            self.data.to_csv(fname)
+            return None
+
+        return self.data
+    
+    def __init__(self, partner_area=None, reporting_area=None,
+        time_period=None, hs=None, freq=None, trade_type=None):
+        self.base_url = 'http://comtrade.un.org/api/get?'
+        self.n_reqs = 0
+        self.set_valid_args()
+
+        if partner_area:
+            self.partner_area = partner_area
+        if reporting_area:
+            self.reporting_area = reporting_area
+        if time_period:
+            self.time_period = time_period
+        if hs:
+            self.hs = hs
+        if freq:
+            self.freq = freq
+        if trade_type:
+            self.trade_type = trade_type
+
+        self.fmt = 'csv'
 
     def __repr__(self):
         out = 'Current Comtrade Request URL: {}'.format(self._base_url)
