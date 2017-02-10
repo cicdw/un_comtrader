@@ -10,7 +10,20 @@ import re
 import requests
 import uncomtrader
 
+
 def _set_attr(obj, pattern, attr, url, dig=True):
+    '''Sets class attributes based on searching for 'pattern' in 'url'.
+
+    Inputs:
+        obj (class) : Class for which attribute will be set
+        pattern (string) : regular expression to search for in `url`
+        attr (string) : attribute to be set in `obj`
+        url (string) : URL to search
+
+    Output:
+        None
+    '''
+
     pat = re.compile(pattern)
     find = pat.search(url).group()
     if find:
@@ -31,10 +44,20 @@ def _set_attr(obj, pattern, attr, url, dig=True):
 
 
 class ComtradeURL(object):
+    '''Class for manipulating and constructing valid UN Comtrade API URLs.
+
+    Inputs (all optional):
+        partner_area : The area(s) receiving the trade
+        reporting_area : The area(s) that reported the trade to UNSD
+        time_period : Time period(s) for data
+        hs : a commodity code (or list of) from the Harmonized System
+        freq : data frequency ('A' for annual or 'M' for monthly)
+        trade_type : Type of trades to pull ('C' for commodities, 'S' for services)
+        url : URL to construct request from
+        fmt : 'csv' or 'json', format to store data in
+    '''
 
     def _parse_url(self, url):
-
-        # partner_area
         _set_attr(self, 'p=(\d+,?)+|p=all', 'partner_area', url)
         _set_attr(self, 'r=(\d+,?)+|r=all', 'reporting_area', url)
         _set_attr(self, 'ps=(\d+,?)+', 'time_period', url)
@@ -44,6 +67,7 @@ class ComtradeURL(object):
         _set_attr(self, 'fmt=csv|fmt=json', 'fmt', url)
 
     def set_valid_args(self):
+        '''Defines what values are valid for various attributes.'''
 
         data_path = join(dirname(uncomtrader.__file__), '../data/')
 
@@ -64,6 +88,7 @@ class ComtradeURL(object):
         self.valid_p = valid_p + ['all']
 
     def from_url(self, url):
+        '''Creates ComtradeURL from a given base URL.'''
         self.base_url = url
         self._parse_url(url)
         return self
@@ -268,25 +293,44 @@ class ComtradeURL(object):
 
 
 class ComtradeRequest(ComtradeURL):
-    '''Creates URL request for UN Comtrade data.
+    '''Class for creating valid UN Comtrade data requests.
 
-    Inputs:
-        partner_area : Partner Area
-        reporting_area : Reporting Area
-        time_period : Time Period
-        hs : Classification Code
-        freq : Data Frequency
-        trade_type : Trade Type
+    Inputs (all optional):
+        partner_area : The area(s) receiving the trade
+        reporting_area : The area(s) that reported the trade to UNSD
+        time_period : Time period(s) for data
+        hs : a commodity code (or list of) from the Harmonized System
+        freq : data frequency ('A' for annual or 'M' for monthly)
+        trade_type : Type of trades to pull ('C' for commodities, 'S' for services)
+        url : URL to construct request from
+        fmt : 'csv' or 'json', format to store data in
     '''
 
     @classmethod
     def from_file(cls, fpath):
+        '''Creates ComtradeRequest from a .json file.
+
+        Inputs (required):
+            fpath (string): location of .json file; for an example, see data/requests.json
+                    in this repository.
+        Output:
+            ComtradeRequest instance.
+        '''
+
         with open(fpath, 'r') as req_path:
             args = json.load(req_path)
 
         return cls(**args)
 
     def pull_data(self, save=False, **kwargs):
+        '''
+        Actually queries the UN Comtrade Database to gather requested data,
+        taking into account usage limits.
+
+        Inputs (optional):
+            save (string) : desired location to save data
+            **kwargs : keyword arguments passed to pandas save function
+        '''
 
         if hasattr(self, 'last_request'):
             now = dt.now()
@@ -345,9 +389,32 @@ class ComtradeRequest(ComtradeURL):
         return out
 
 class MultiRequest(object):
+    '''
+    Class for creating valid UN Comtrade data requests which exceed
+    data field limits.
+
+    Inputs (all optional):
+        partner_area : The area(s) receiving the trade
+        reporting_area : The area(s) that reported the trade to UNSD
+        time_period : Time period(s) for data
+        hs : a commodity code (or list of) from the Harmonized System
+        freq : data frequency ('A' for annual or 'M' for monthly)
+        trade_type : Type of trades to pull ('C' for commodities, 'S' for services)
+        url : URL to construct request from
+        fmt : 'csv' or 'json', format to store data in
+    '''
 
     @classmethod
     def from_file(cls, fpath):
+        '''Creates MultiRequest from a .json file.
+
+        Inputs (required):
+            fpath (string): location of .json file; for an example, see data/requests.json
+                    in this repository.
+        Output:
+            MultiRequest instance.
+        '''
+
         with open(fpath, 'r') as req_path:
             args = json.load(req_path)
 
@@ -370,6 +437,15 @@ class MultiRequest(object):
         return res
 
     def pull_data(self, verbose=True, save=False, **kwargs):
+        '''
+        Actually queries the UN Comtrade Database to gather requested data,
+        taking into account usage limits.
+
+        Inputs (optional):
+            verbose (boolean) : whether to print current request
+            save (string) : desired location to save data
+            **kwargs : keyword arguments passed to pandas save function
+        '''
 
         reqs_left = self.reqs
         req = reqs_left.pop()
@@ -381,6 +457,7 @@ class MultiRequest(object):
 
         while len(reqs_left) > 0:
             new_req = reqs_left.pop()
+            # maintains state to prevent too many requests
             req = req.from_url(new_req.base_url)
 
             if verbose:
