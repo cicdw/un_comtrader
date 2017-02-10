@@ -286,6 +286,7 @@ class ComtradeRequest(ComtradeURL):
             except CParserError as err:
                 raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
         if self.fmt == 'json':
+            raise ValueError("JSON currently unsupported.")
             try:
                 self.data = pd.read_json(StringIO(content))
             except CParserError as err:
