@@ -1,1 +1,1 @@
-from uncomtrader.uncomtrader import ComtradeRequest
+from uncomtrader.uncomtrader import ComtradeRequest, MultiRequest
