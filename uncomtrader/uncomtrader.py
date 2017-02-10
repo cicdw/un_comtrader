@@ -15,7 +15,7 @@ class ComtradeURL(object):
     def set_valid_args(self):
 
         data_path = join(dirname(uncomtrader.__file__), '../data/')
-        
+
         with open(data_path + 'reporterAreas.json', 'r') as data_file:
             valid_r = json.load(data_file)
 
@@ -32,13 +32,31 @@ class ComtradeURL(object):
         valid_p = [int(val) for val in valid_p if val != 'all']
         self.valid_p = valid_p + ['all']
 
-    def __init__(self, url=None):
+    def __init__(self, partner_area=None, reporting_area=None,
+        time_period=None, hs=None, freq=None, trade_type=None,
+        url=None):
+
         if url:
-            self.base_url = url
+            self.base_url = url #TODO: parse parameters from URL
         else:
             self.base_url = 'http://comtrade.un.org/api/get?'
 
         self.set_valid_args()
+
+        if partner_area:
+            self.partner_area = partner_area
+        if reporting_area:
+            self.reporting_area = reporting_area
+        if time_period:
+            self.time_period = time_period
+        if hs:
+            self.hs = hs
+        if freq:
+            self.freq = freq
+        if trade_type:
+            self.trade_type = trade_type
+
+        self.fmt = 'csv'
 
     @property
     def base_url(self):
@@ -102,12 +120,12 @@ class ComtradeURL(object):
     def hs(self, val):
 
         if isinstance(val, list):
-            val = ','.join(map(str, val))
             if len(val) > 20:
                 raise ValueError("Too many HS codes provided; limit is 20.")
+            val = ','.join(map(str, val))
 
         if hasattr(self, '_px'):
-            self.base_url = re.sub('cc=(\d+,?)+', 'cc={}'.format(val), 
+            self.base_url = re.sub('cc=(\d+,?)+', 'cc={}'.format(val),
                                 self.base_url)
         else:
             self.base_url += '&px=HS&cc={}'.format(val)
@@ -150,9 +168,9 @@ class ComtradeURL(object):
     def time_period(self, val):
 
         if isinstance(val, list):
-            val = ','.join(map(str, val))
             if len(val) > 5:
                 raise ValueError("Too many time periods provided; limit is 5.")
+            val = ','.join(map(str, val))
 
         if hasattr(self, '_ps'):
             self.base_url = re.sub('ps=(\d+,?)+', 'ps={}'.format(val),
@@ -176,7 +194,7 @@ class ComtradeURL(object):
             raise ValueError('''Allowable frequency values are 'A' and 'M'!''')
 
         if hasattr(self, '_freq'):
-            self.base_url = re.sub('freq=[A-Z]', 'freq={}'.format(val), 
+            self.base_url = re.sub('freq=[A-Z]', 'freq={}'.format(val),
                                 self.base_url)
         else:
             self.base_url += '&freq={}'.format(val)
@@ -199,7 +217,7 @@ class ComtradeURL(object):
         else:
             if val not in self.valid_r:
                 raise ValueError('Invalid value given!')
-       
+
         if hasattr(self, '_r'):
             self.base_url = re.sub('r=(\d+,?)+', 'r={}'.format(val),
                                     self.base_url)
@@ -234,16 +252,6 @@ class ComtradeRequest(ComtradeURL):
 
         return cls(**args)
 
-    def set_defaults(self):
-        '''Sets some convenient default values for testing.'''
-        self.partner_area = 36
-        self.time_period = 2016
-        self.reporting_area = 'all'
-        self.hs = 44
-        self.freq = 'A'
-        self.trade_type = 'C'
-        self.fmt = 'csv'
-
     def pull_data(self, save=False, **kwargs):
 
         if hasattr(self, 'last_request'):
@@ -259,7 +267,7 @@ class ComtradeRequest(ComtradeURL):
         r = requests.get(self._base_url)
         self.n_reqs += 1
         content = r.content.decode('utf-8')
-        
+
         if "No data matches your query" in content:
             raise IOError("No data matches your query or your query is too complex!")
 
@@ -285,28 +293,56 @@ class ComtradeRequest(ComtradeURL):
             return None
 
         return self.data
-    
-    def __init__(self, partner_area=None, reporting_area=None,
-        time_period=None, hs=None, freq=None, trade_type=None):
-        self.base_url = 'http://comtrade.un.org/api/get?'
-        self.n_reqs = 0
-        self.set_valid_args()
 
-        if partner_area:
-            self.partner_area = partner_area
-        if reporting_area:
-            self.reporting_area = reporting_area
-        if time_period:
-            self.time_period = time_period
-        if hs:
-            self.hs = hs
-        if freq:
-            self.freq = freq
-        if trade_type:
-            self.trade_type = trade_type
+    def __init__(self, **kwargs):
 
-        self.fmt = 'csv'
+        super(ComtradeRequest, self).__init__(**kwargs)
 
     def __repr__(self):
         out = 'Current Comtrade Request URL: {}'.format(self._base_url)
         return out
+
+class MultiRequest(object):
+
+    @classmethod
+    def from_file(cls, fpath):
+        with open(fpath, 'r') as req_path:
+            args = json.load(req_path)
+
+        return cls(**args)
+
+    def _partition(self, val, max_len):
+        res = []
+
+        if len(val) > max_len:
+            while len(val) > max_len:
+                res.append(val[:max_len])
+                val = val[max_len:]
+
+        if len(val) > 0:
+            res.append(val)
+
+        return res
+
+    def pull_data(self, **kwargs):
+           req = self.reqs.pop()
+
+    def __init__(self, hs=[], time_period=[], **kwargs):
+        self.reqs = []
+        self.hs = self._partition(hs, 20)
+        self.time_period = self._partition(time_period, 5)
+
+        for hs_val in self.hs:
+            for ts_val in self.time_period:
+                self.reqs.append(ComtradeURL(hs=hs_val, time_period=ts_val, **kwargs))
+
+        self.nrequests = len(self.reqs)
+        if self.nrequests > 100:
+            raise ValueError("Over 100 requests generated!  Shorten your inputs.")
+
+    def __repr__(self):
+        out = 'Currently storing {0} Comtrade Requests with URLs:'.format(self.nrequests)
+        for req in self.reqs:
+            out += '\n{}'.format(req.base_url)
+        return out
+
