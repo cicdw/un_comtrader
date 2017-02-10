@@ -97,8 +97,12 @@ class ComtradeURL(object):
 
     @hs.setter
     def hs(self, val):
+
+        if isinstance(val, list):
+            val = ','.join(map(str, val))
+
         if hasattr(self, '_px'):
-            self.base_url = re.sub('cc=\d+', 'cc={}'.format(val), 
+            self.base_url = re.sub('cc=(\d+,?)+', 'cc={}'.format(val), 
                                 self.base_url)
         else:
             self.base_url += '&px=HS&cc={}'.format(val)
@@ -112,11 +116,19 @@ class ComtradeURL(object):
 
     @partner_area.setter
     def partner_area(self, val):
-        if val not in self.valid_p:
-            raise ValueError('Invalid value given!')
+
+        if isinstance(self, list):
+            for obj in val:
+                if obj not in self.valid_p:
+                    raise ValueError('Invalid value given!')
+
+            val = ','.join(map(str, val))
+        else:
+            if val not in self.valid_p:
+                raise ValueError('Invalid value given!')
 
         if hasattr(self, '_p'):
-            self.base_url = re.sub('p=\d+', 'p={}'.format(val),
+            self.base_url = re.sub('p=(\d+,?)+', 'p={}'.format(val),
                                     self.base_url)
             self.base_url = re.sub('p=all', 'p={}'.format(val),
                                     self.base_url)
@@ -131,8 +143,12 @@ class ComtradeURL(object):
 
     @time_period.setter
     def time_period(self, val):
+
+        if isinstance(val, list):
+            val = ','.join(map(str, val))
+
         if hasattr(self, '_ps'):
-            self.base_url = re.sub('ps=\d+', 'ps={}'.format(val),
+            self.base_url = re.sub('ps=(\d+,?)+', 'ps={}'.format(val),
                                     self.base_url)
         else:
             self.base_url += '&ps={}'.format(val)
@@ -166,11 +182,19 @@ class ComtradeURL(object):
 
     @reporting_area.setter
     def reporting_area(self, val):
-        if val not in self.valid_r:
-            raise ValueError('Invalid value given!')
+
+        if isinstance(self, list):
+            for obj in val:
+                if obj not in self.valid_r:
+                    raise ValueError('Invalid value given!')
+
+            val = ','.join(map(str, val))
+        else:
+            if val not in self.valid_r:
+                raise ValueError('Invalid value given!')
        
         if hasattr(self, '_r'):
-            self.base_url = re.sub('r=\d+', 'r={}'.format(val),
+            self.base_url = re.sub('r=(\d+,?)+', 'r={}'.format(val),
                                     self.base_url)
             self.base_url = re.sub('r=all', 'r={}'.format(val),
                                     self.base_url)
@@ -215,7 +239,7 @@ class ComtradeRequest(ComtradeURL):
 
     def pull_data(self, save=False):
 
-        if self.last_request:
+        if hasattr(self, 'last_request'):
             now = dt.now()
             time_elapsed = (now - self.last_request).total_seconds()
             if time_elapsed < 1:
@@ -227,6 +251,10 @@ class ComtradeRequest(ComtradeURL):
         self.last_request = dt.now()
         r = requests.get(self._base_url)
         content = r.content.decode('utf-8')
+        
+        if "No data matches your query" in content:
+            raise IOError("No data matches your query or your query is too complex!")
+
         self.data = pd.read_csv(StringIO(content))
         self.n_reqs += 1
 
