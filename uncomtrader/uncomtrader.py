@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from io import StringIO
-from os.path import exists
+from os.path import dirname, exists
 from time import sleep
 
 import json
@@ -13,21 +13,24 @@ class ComtradeURL(object):
 
     def set_valid_args(self):
 
-        with open('../data/reporterAreas.json', 'r') as data_file:
-            valid_r = json.load(data_file)
+        if exists('../data/reporterAreas.json'):
+            with open('../data/reporterAreas.json', 'r') as data_file:
+                valid_r = json.load(data_file)
 
-        with open('../data/partnerAreas.json', 'r') as data_file:
-            valid_p = json.load(data_file)
+            with open('../data/partnerAreas.json', 'r') as data_file:
+                valid_p = json.load(data_file)
 
-        ## valid reporting areas
-        valid_r = [obj['id'] for obj in valid_r['results']]
-        valid_r = [int(val) for val in valid_r if val != 'all']
-        self.valid_r = valid_r + ['all']
+            ## valid reporting areas
+            valid_r = [obj['id'] for obj in valid_r['results']]
+            valid_r = [int(val) for val in valid_r if val != 'all']
+            self.valid_r = valid_r + ['all']
 
-        ## set valid partner areas
-        valid_p = [obj['id'] for obj in valid_p['results']]
-        valid_p = [int(val) for val in valid_p if val != 'all']
-        self.valid_p = valid_p + ['all']
+            ## set valid partner areas
+            valid_p = [obj['id'] for obj in valid_p['results']]
+            valid_p = [int(val) for val in valid_p if val != 'all']
+            self.valid_p = valid_p + ['all']
+        else:
+            valid_p, valid_r = [], []
 
     def __init__(self, url=None):
         if url:
