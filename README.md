@@ -1,5 +1,5 @@
 # uncomtrader
-For automating requests to the UN comtrade trade database.
+For automating requests to the [UN comtrade trade database](https://comtrade.un.org/data).
 
 ### Installation
 
