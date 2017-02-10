@@ -1,6 +1,6 @@
 {
     "trade_type": "C", 
-    "hs": 44, 
+    "hs": [44, 4401], 
     "partner_area": 36, 
     "freq": "A", 
     "reporting_area": "all", 
