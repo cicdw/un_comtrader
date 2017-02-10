@@ -1,5 +1,21 @@
-# un_comtrader
+# uncomtrader
 For automating requests to the UN comtrade trade database.
+
+### Installation
+
+To install, clone the repo and run `setup.py`:
+
+```
+git clone https://github.com/moody-marlin/un_comtrader.git
+cd un_comtrader
+python setup.py
+```
+
+OR use `pip`:
+
+```
+pip install git+https://github.com/moody-marlin/un_comtrader.git
+```
 
 ### Importing / Setup
 
