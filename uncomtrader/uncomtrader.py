@@ -344,7 +344,7 @@ class MultiRequest(object):
 
         return res
 
-    def pull_data(self, verbose=True, **kwargs):
+    def pull_data(self, verbose=True, save=False, **kwargs):
         self.unfulfilled_reqs = self.reqs
         req = self.unfulfilled_reqs.pop()
         ##FIXME: adjust single request, need URL parser
@@ -364,7 +364,11 @@ class MultiRequest(object):
 
             df = pd.concat([df, req.pull_data()])
 
-        return df
+        if save:
+            df.to_csv(save, index=False)
+            return None
+        else:
+            return df
 
     def __init__(self, hs=[], time_period=[], **kwargs):
         self.reqs = []
