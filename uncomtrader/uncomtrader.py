@@ -1,6 +1,7 @@
 from datetime import datetime as dt
 from io import StringIO
 from os.path import dirname, exists, join
+from pandas.parser import CParserError
 from time import sleep
 
 import json
@@ -11,6 +12,14 @@ import uncomtrader
 
 
 class ComtradeURL(object):
+
+    def _parse_url(self, url):
+
+        # partner_area
+        pat1 = re.compile('p=(\d+,?)}')
+        pat2 = re.compile('p=all')
+        pat_list = pat1.match(url)
+        pat_all = pat2.match(url)
 
     def set_valid_args(self):
 
@@ -272,9 +281,15 @@ class ComtradeRequest(ComtradeURL):
             raise IOError("No data matches your query or your query is too complex!")
 
         if self.fmt == 'csv':
-            self.data = pd.read_csv(StringIO(content))
+            try:
+                self.data = pd.read_csv(StringIO(content))
+            except CParserError as err:
+                raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
         if self.fmt == 'json':
-            self.data = pd.read_json(StringIO(content))
+            try:
+                self.data = pd.read_json(StringIO(content))
+            except CParserError as err:
+                raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
 
         self.data = self.data.dropna(axis=1, how='all')
 
@@ -297,6 +312,7 @@ class ComtradeRequest(ComtradeURL):
     def __init__(self, **kwargs):
 
         super(ComtradeRequest, self).__init__(**kwargs)
+        self.n_reqs = 0
 
     def __repr__(self):
         out = 'Current Comtrade Request URL: {}'.format(self._base_url)
@@ -314,6 +330,9 @@ class MultiRequest(object):
     def _partition(self, val, max_len):
         res = []
 
+        if not isinstance(val, list):
+            return [val]
+
         if len(val) > max_len:
             while len(val) > max_len:
                 res.append(val[:max_len])
@@ -324,8 +343,27 @@ class MultiRequest(object):
 
         return res
 
-    def pull_data(self, **kwargs):
-           req = self.reqs.pop()
+    def pull_data(self, verbose=True, **kwargs):
+        self.unfulfilled_reqs = self.reqs
+        req = self.unfulfilled_reqs.pop()
+        ##FIXME: adjust single request, need URL parser
+        base_req = ComtradeRequest(url=req.base_url)
+
+        if verbose:
+            print('Pulling request {}'.format(base_req.base_url))
+        df = base_req.pull_data()
+
+        while len(self.unfulfilled_reqs) > 0:
+            sleep(1.05)
+            req = self.unfulfilled_reqs.pop()
+            req = ComtradeRequest(url=req.base_url)
+
+            if verbose:
+                print('Pulling request {}'.format(req.base_url))
+
+            df = pd.concat([df, req.pull_data()])
+
+        return df
 
     def __init__(self, hs=[], time_period=[], **kwargs):
         self.reqs = []
