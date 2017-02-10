@@ -264,6 +264,8 @@ class ComtradeRequest(ComtradeURL):
         if self.fmt == 'json':
             self.data = pd.read_json(StringIO(content))
 
+        self.data = self.data.dropna(axis=1, how='all')
+
         if save:
             fname = save
             idx = 1
