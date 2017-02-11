@@ -1,10 +1,11 @@
 import pandas as pd
 import pytest
+from time import sleep
 
 from uncomtrader import ComtradeRequest, MultiRequest
 
 # whether to skip actual request calls
-skip = True
+skip = False
 
 @pytest.mark.parametrize("attr,val", [
     ("partner_area",36),
@@ -23,8 +24,9 @@ def test_url_parser(attr, val,
 
 @pytest.mark.skipif(skip,
     reason="Prevent using up unecessary requests accidentally.")
-def test_simple_request():
+def test_simple_csv_request():
     '''Test a simple request.'''
+    sleep(1)
     req = ComtradeRequest(trade_type="C", hs=4401,
             partner_area=36, freq='A',
             reporting_area="all", time_period=2016)
@@ -35,8 +37,23 @@ def test_simple_request():
 
 @pytest.mark.skipif(skip,
     reason="Prevent using up unecessary requests accidentally.")
+def test_simple_json_request():
+    '''Test a simple request.'''
+    sleep(1)
+    req = ComtradeRequest(trade_type="C", hs=4401,
+            partner_area=36, freq='A',
+            reporting_area="all", time_period=2016,
+            fmt='json')
+
+    df = req.pull_data()
+    assert df.shape == (3, 29)
+
+
+@pytest.mark.skipif(skip,
+    reason="Prevent using up unecessary requests accidentally.")
 def test_simple_multirequest():
     '''Test a multi request.'''
+    sleep(1)
     req = MultiRequest(trade_type="C", hs=4401,
             partner_area=36, freq='A',
             reporting_area="all",
@@ -50,6 +67,7 @@ def test_simple_multirequest():
     reason="Prevent using up unecessary requests accidentally.")
 def test_simple_multirequest():
     '''Test a simple (unnecessary) multi request.'''
+    sleep(1)
     req = MultiRequest(trade_type="C", hs=4401,
             partner_area=36, freq='A',
             reporting_area="all", time_period=2016)
