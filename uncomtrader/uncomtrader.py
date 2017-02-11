@@ -349,17 +349,15 @@ class ComtradeRequest(ComtradeURL):
         if "No data matches your query" in content:
             raise IOError("No data matches your query or your query is too complex!")
 
-        if self.fmt == 'csv':
-            try:
+        try:
+            if self.fmt == 'csv':
                 self.data = pd.read_csv(StringIO(content))
-            except CParserError as err:
-                raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
-        if self.fmt == 'json':
-            raise ValueError("JSON currently unsupported.")
-            try:
-                self.data = pd.read_json(StringIO(content))
-            except CParserError as err:
-                raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
+            if self.fmt == 'json':
+                raw = json.loads(r.text)
+                data = json.dumps(raw['dataset'])
+                self.data = pd.read_json(data)
+        except CParserError as err:
+            raise IOError("Data Usage Limit exceeded! Try again in an hour.") from err
 
         self.data = self.data.dropna(axis=1, how='all')
 
