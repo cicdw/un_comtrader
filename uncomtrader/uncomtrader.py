@@ -3,6 +3,7 @@ from io import StringIO
 from os.path import dirname, exists, join
 from pandas.parser import CParserError
 from time import sleep
+from .utils import _get_reporting_codes, _get_partner_codes
 
 import json
 import pandas as pd
@@ -10,6 +11,9 @@ import re
 import requests
 import uncomtrader
 
+
+reporting_codes = _get_reporting_codes()
+partner_codes = _get_partner_codes()
 
 def _set_attr(obj, pattern, attr, url, dig=True):
     '''Sets class attributes based on searching for 'pattern' in 'url'.
@@ -199,7 +203,10 @@ class ComtradeURL(object):
     @partner_area.setter
     def partner_area(self, val):
 
-        if isinstance(self, list):
+        if isinstance(val, str):
+            val = partner_codes[val.lower()]
+
+        if isinstance(val, list):
             for obj in val:
                 if obj not in self.valid_p:
                     raise ValueError('Invalid value given!')
@@ -267,7 +274,10 @@ class ComtradeURL(object):
     @reporting_area.setter
     def reporting_area(self, val):
 
-        if isinstance(self, list):
+        if isinstance(val, str):
+            val = reporting_codes[val.lower()]
+
+        if isinstance(val, list):
             for obj in val:
                 if obj not in self.valid_r:
                     raise ValueError('Invalid value given!')
