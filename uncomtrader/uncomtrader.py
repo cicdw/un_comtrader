@@ -14,6 +14,9 @@ import uncomtrader
 
 reporting_codes = _get_reporting_codes()
 partner_codes = _get_partner_codes()
+trade_flow_codes = {"import" : 1, "export" : 2,
+                    "re-export" : 3, "re-import" : 4,
+                    "all" : "all"}
 
 def _set_attr(obj, pattern, attr, url, dig=True):
     '''Sets class attributes based on searching for 'pattern' in 'url'.
@@ -29,9 +32,11 @@ def _set_attr(obj, pattern, attr, url, dig=True):
     '''
 
     pat = re.compile(pattern)
-    find = pat.search(url).group()
-    if find:
+    match = pat.search(url)
+    if match:
+        find = match.group()
         find = find.split('=')[1]
+
         if len(find.split(',')) > 1:
             try:
                 find = list(map(int, find.split(',')))
@@ -57,18 +62,22 @@ class ComtradeURL(object):
         hs : a commodity code (or list of) from the Harmonized System
         freq : data frequency ('A' for annual or 'M' for monthly)
         trade_type : Type of trades to pull ('C' for commodities, 'S' for services)
+        trade_flow : Type of trade flow (one of 'Import', 'Export', 're-Import', 're-Export')
         url : URL to construct request from
         fmt : 'csv' or 'json', format to store data in
     '''
 
     def _parse_url(self, url):
-        _set_attr(self, 'p=(\d+,?)+|p=all', 'partner_area', url)
-        _set_attr(self, 'r=(\d+,?)+|r=all', 'reporting_area', url)
-        _set_attr(self, 'ps=(\d+,?)+', 'time_period', url)
-        _set_attr(self, 'cc=(\d+,?)+', 'hs', url)
-        _set_attr(self, 'freq=A|freq=M', 'freq', url)
-        _set_attr(self, 'type=C|type=S', 'trade_type', url)
-        _set_attr(self, 'fmt=csv|fmt=json', 'fmt', url)
+        for pattern, attr in [
+            ('p=(\d+,?)+|p=all', 'partner_area'),
+            ('r=(\d+,?)+|r=all', 'reporting_area'),
+            ('ps=(\d+,?)+', 'time_period'),
+            ('cc=(\d+,?)+', 'hs'),
+            ('freq=A|freq=M', 'freq'), ('rg=\d+|rg=all', 'rg'),
+            ('type=C|type=S', 'trade_type'),
+            ('fmt=csv|fmt=json', 'fmt')]:
+
+            _set_attr(self, pattern, attr, url)
 
     def set_valid_args(self):
         '''Defines what values are valid for various attributes.'''
@@ -99,7 +108,7 @@ class ComtradeURL(object):
 
     def __init__(self, partner_area=None, reporting_area=None,
         time_period=None, hs=None, freq=None, trade_type=None,
-        url=None, fmt='csv'):
+        trade_flow=None, url=None, fmt='csv'):
 
         self.set_valid_args()
         if url:
@@ -120,6 +129,8 @@ class ComtradeURL(object):
             self.freq = freq
         if trade_type:
             self.trade_type = trade_type
+        if trade_flow:
+            self.trade_flow = trade_flow
 
     @property
     def base_url(self):
@@ -152,6 +163,26 @@ class ComtradeURL(object):
             self.base_url += '&fmt={}'.format(val)
 
         self._fmt = val
+
+    @property
+    def trade_flow(self):
+        return self._rg
+
+    @trade_flow.setter
+    def trade_flow(self, val):
+        val = val.lower()
+
+        if val not in trade_flow_codes.keys():
+            raise ValueError('''Invalid trade flow provided!''')
+
+        code = trade_flow_codes[val]
+        if hasattr(self, '_rg'):
+            self.base_url = re.sub('rg=\d+|rg=all', 'rg={}'.format(code),
+                                    self.base_url)
+        else:
+            self.base_url += '&rg={}'.format(code)
+
+        self._type = code
 
     @property
     def trade_type(self):
@@ -396,6 +427,7 @@ class ComtradeRequest(ComtradeURL):
         out = 'Current Comtrade Request URL: {}'.format(self._base_url)
         return out
 
+
 class MultiRequest(object):
     '''
     Class for creating valid UN Comtrade data requests which exceed
@@ -466,12 +498,12 @@ class MultiRequest(object):
         while len(reqs_left) > 0:
             new_req = reqs_left.pop()
             # maintains state to prevent too many requests
-            req = req.from_url(new_req.base_url)
+            req = base_req.from_url(new_req.base_url)
 
             if verbose:
-                print('Pulling request {}'.format(req.base_url))
+                print('Pulling request {}'.format(base_req.base_url))
 
-            df = pd.concat([df, req.pull_data()])
+            df = pd.concat([df, base_req.pull_data()])
 
         self.data = df
 
@@ -496,7 +528,5 @@ class MultiRequest(object):
             raise ValueError("Over 100 requests generated!  Shorten your inputs.")
 
     def __repr__(self):
-        out = 'Currently storing {0} Comtrade Requests with URLs:'.format(self.nrequests)
-        for req in self.reqs:
-            out += '\n{}'.format(req.base_url)
+        out = 'MultiRequest storing {0} individual Comtrade Requests'.format(self.nrequests)
         return out
