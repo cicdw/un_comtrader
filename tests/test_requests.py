@@ -5,7 +5,7 @@ from time import sleep
 from uncomtrader import ComtradeRequest, MultiRequest
 
 # whether to skip actual request calls
-skip = True
+skip = False
 
 @pytest.mark.parametrize("attr,val", [
     ("partner_area",36),

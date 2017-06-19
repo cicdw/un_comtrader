@@ -154,7 +154,9 @@ class ComtradeURL(object):
         if val not in ['csv', 'json']:
             raise ValueError('''Allowable values for trade type are 'csv' and 'json'!''')
 
-        if hasattr(self, '_fmt'):
+        pat = re.compile('fmt=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('fmt=csv', 'fmt={}'.format(val),
                                     self.base_url)
             self.base_url = re.sub('fmt=json', 'fmt={}'.format(val),
@@ -176,7 +178,9 @@ class ComtradeURL(object):
             raise ValueError('''Invalid trade flow provided!''')
 
         code = trade_flow_codes[val]
-        if hasattr(self, '_rg'):
+        pat = re.compile('rg=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('rg=\d+|rg=all', 'rg={}'.format(code),
                                     self.base_url)
         else:
@@ -198,7 +202,9 @@ class ComtradeURL(object):
         if val not in ['C', 'S']:
             raise ValueError('''Allowable values for trade type are 'C' and 'S'!''')
 
-        if hasattr(self, '_type'):
+        pat = re.compile('type=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('type=[A-Z]', 'type={}'.format(val),
                                     self.base_url)
         else:
@@ -218,7 +224,9 @@ class ComtradeURL(object):
                 raise ValueError("Too many HS codes provided; limit is 20.")
             val = ','.join(map(str, val))
 
-        if hasattr(self, '_px'):
+        pat = re.compile('cc=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('cc=(\d+,?)+', 'cc={}'.format(val),
                                 self.base_url)
         else:
@@ -247,7 +255,9 @@ class ComtradeURL(object):
             if val not in self.valid_p:
                 raise ValueError('Invalid value given!')
 
-        if hasattr(self, '_p'):
+        pat = re.compile('p=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('p=(\d+,?)+', 'p={}'.format(val),
                                     self.base_url)
             self.base_url = re.sub('p=all', 'p={}'.format(val),
@@ -269,7 +279,9 @@ class ComtradeURL(object):
                 raise ValueError("Too many time periods provided; limit is 5.")
             val = ','.join(map(str, val))
 
-        if hasattr(self, '_ps'):
+        pat = re.compile('ps=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('ps=(\d+,?)+', 'ps={}'.format(val),
                                     self.base_url)
         else:
@@ -290,7 +302,9 @@ class ComtradeURL(object):
         if val not in ['A', 'M']:
             raise ValueError('''Allowable frequency values are 'A' and 'M'!''')
 
-        if hasattr(self, '_freq'):
+        pat = re.compile('freq=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('freq=[A-Z]', 'freq={}'.format(val),
                                 self.base_url)
         else:
@@ -318,7 +332,9 @@ class ComtradeURL(object):
             if val not in self.valid_r:
                 raise ValueError('Invalid value given!')
 
-        if hasattr(self, '_r'):
+        pat = re.compile('r=')
+        match = pat.search(self.base_url)
+        if match:
             self.base_url = re.sub('r=(\d+,?)+', 'r={}'.format(val),
                                     self.base_url)
             self.base_url = re.sub('r=all', 'r={}'.format(val),
