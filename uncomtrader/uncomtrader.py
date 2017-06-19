@@ -379,13 +379,14 @@ class ComtradeRequest(ComtradeURL):
 
         return cls(**args)
 
-    def pull_data(self, save=False, **kwargs):
+    def pull_data(self, save=False, ignore_errors=False, **kwargs):
         '''
         Actually queries the UN Comtrade Database to gather requested data,
         taking into account usage limits.
 
         Inputs (optional):
             save (string) : desired location to save data
+            ignore_errors (boolean) : flag for whether to ignore "No Data" / "too complex" complaints
             **kwargs : keyword arguments passed to pandas save function
         '''
 
@@ -404,7 +405,10 @@ class ComtradeRequest(ComtradeURL):
         content = r.content.decode('utf-8')
 
         if "No data matches your query" in content:
-            raise IOError("No data matches your query or your query is too complex!")
+            if not ignore_errors:
+                raise IOError("No data matches your query or your query is too complex!")
+            else:
+                self.data = pd.DataFrame()
 
         try:
             if self.fmt == 'csv':
