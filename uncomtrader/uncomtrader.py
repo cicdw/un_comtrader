@@ -10,6 +10,7 @@ import pandas as pd
 import re
 import requests
 import uncomtrader
+import warnings
 
 
 reporting_codes = _get_reporting_codes()
@@ -408,6 +409,7 @@ class ComtradeRequest(ComtradeURL):
             if not ignore_errors:
                 raise IOError("No data matches your query or your query is too complex!")
             else:
+                warnings.warn("Query {} returned no data or query was too complex!".format(self.base_url))
                 self.data = pd.DataFrame()
 
         try:
@@ -496,24 +498,25 @@ class MultiRequest(object):
 
         return res
 
-    def pull_data(self, verbose=True, save=False, **kwargs):
+    def pull_data(self, verbose=True, save=False, ignore_errors=False, **kwargs):
         '''
         Actually queries the UN Comtrade Database to gather requested data,
         taking into account usage limits.
 
         Inputs (optional):
+            ignore_errors (boolean) : whether to ignore "No data" errors
             verbose (boolean) : whether to print current request
             save (string) : desired location to save data
             **kwargs : keyword arguments passed to pandas save function
         '''
 
-        reqs_left = self.reqs
+        reqs_left = self.reqs.copy()
         req = reqs_left.pop()
         base_req = ComtradeRequest(url=req.base_url)
 
         if verbose:
             print('Pulling request {}'.format(base_req.base_url))
-        df = base_req.pull_data()
+        df = base_req.pull_data(ignore_errors=ignore_errors)
 
         while len(reqs_left) > 0:
             new_req = reqs_left.pop()
@@ -523,7 +526,7 @@ class MultiRequest(object):
             if verbose:
                 print('Pulling request {}'.format(base_req.base_url))
 
-            df = pd.concat([df, base_req.pull_data()])
+            df = pd.concat([df, base_req.pull_data(ignore_errors=ignore_errors)])
 
         self.data = df
 
